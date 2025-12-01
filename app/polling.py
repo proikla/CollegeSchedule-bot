@@ -16,7 +16,7 @@ from app.handlers.start import router as start_router
 dp = Dispatcher()
 TOKEN = config.token
 
-bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
 
 # todo: see app/handlers/start.py:20.
 # todo: users can upload the schedule.

@@ -139,10 +139,3 @@ def get_classes_for_today(start_date: str):
                 hour=0, minute=0, second=0, microsecond=0
             ):
                 return day
-
-
-if __name__ == "__main__":
-    schedule = compose_schedule()
-    for week in schedule:
-        for day in week:
-            print(f"{day.name} ({day.date}):\n{day}\n")
