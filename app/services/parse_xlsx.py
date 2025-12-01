@@ -8,14 +8,23 @@ from datetime import datetime, timedelta
 WEEKDAYS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота"]
 
 
+class Class:
+    def __init__(self, subject, classroom):
+        self.subject = subject
+        self.classroom = classroom
+
+    def __format__(self, format_spec):
+        return f"{self.classroom} - {self.subject}"
+
+
 class Day:
     def __init__(self, date, classes, name):
         self.date = datetime(date.year, date.month, date.day)
-        self.classes: list = classes
+        self.classes: list[Class] = classes
         self.name: str = name
 
     def __format__(self, format_spec):
-        return f"*{self.name.capitalize()}*\n{''.join([f"{idx+1}: {text}\n" for idx, text in enumerate(map(str, self.classes))])}"
+        return f"*{self.name.capitalize()}*\n{''.join([f"{idx+1}: {_class}\n" for idx, _class in enumerate(self.classes)])}"
 
 
 def calculate_classes_amount(df=df):
@@ -95,13 +104,22 @@ def compose_schedule(df=df, start_date="03.11"):
         i = find_starting_row()
         j = i + classes_amount.get("понедельник")
         for day_name in WEEKDAYS:
-            j = i + classes_amount.get(day_name)
-            # if isinstance(week_row,str)
+            j = i + classes_amount.get(day_name, 0)
+
+            subjects = df.iloc[i:j, week_idx].fillna("").astype(str).tolist()
+            classrooms = df.iloc[i:j, week_idx + 1].fillna("").astype(str).tolist()
+
+            classes = [
+                Class(subject.strip(), classroom.strip())
+                for subject, classroom in zip(subjects, classrooms)
+            ]
+
             day = Day(
                 start_date + timedelta(days=days_processed),
-                list(df[week_idx][i:j].values),
+                classes,
                 day_name,
             )
+
             days_processed += 1
             week.append(day)
             i = j
