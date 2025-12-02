@@ -88,9 +88,10 @@ def find_starting_row(df=df) -> int:
         count += 1
 
 
+
+
 def compose_schedule(df=df, start_date="03.11"):
     # start wit starting row
-    classes_amount = calculate_classes_amount()
     start_date = datetime.strptime(start_date, "%d.%m").replace(
         year=datetime.now().year
     )
@@ -99,12 +100,12 @@ def compose_schedule(df=df, start_date="03.11"):
     week = []
     schedule = []
     # * FOR EACH WEEK
-    for week_idx in find_classes_columns():  # [3,5,...]
+    for week_idx in cached_classes_columns:  # [3,5,...]
         # * FOR EACH DAY
-        i = find_starting_row()
-        j = i + classes_amount.get("понедельник")
+        i = cached_starting_row
+        j = i + cached_classes_amount.get("понедельник")
         for day_name in WEEKDAYS:
-            j = i + classes_amount.get(day_name, 0)
+            j = i + cached_classes_amount.get(day_name, 0)
 
             subjects = df.iloc[i:j, week_idx].fillna("").astype(str).tolist()
             classrooms = df.iloc[i:j, week_idx + 1].fillna("").astype(str).tolist()
@@ -139,3 +140,8 @@ def get_classes_for_today(start_date: str):
                 hour=0, minute=0, second=0, microsecond=0
             ):
                 return day
+
+
+cached_starting_row = find_starting_row(df=df)
+cached_classes_amount = calculate_classes_amount()
+cached_classes_columns = find_classes_columns()

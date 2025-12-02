@@ -18,10 +18,10 @@ TOKEN = config.token
 
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
 
-# todo: see app/handlers/start.py:20.
+# todo: make Schedule structure flat.
+# todo: add comments in handlers/start.py
 # todo: users can upload the schedule.
-# todo: maybe rework Schedule structure.
-# todo: add a way of viewing the schedule using an inline keyboard.
+# todo: users can ask to delete a class and provide proof.
 
 
 async def main() -> None:

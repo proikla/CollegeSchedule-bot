@@ -25,14 +25,17 @@ flat: list[Day] = [x for sub in schedule for x in sub]
 
 
 def find_day(schedule, day_to_find: int):
+    logger.debug("Find day triggered")
     for day in flat:
-        logger.debug(day.date.day)
         if f"{day.date.month}/{day.date.day}" == day_to_find:
             return day
 
 
 @router.callback_query(F.data.regexp(r"[><]"))
 async def handle_callback(callback: CallbackQuery, state: FSMContext):
+    logger.debug(
+        f"Callback handled from {callback.from_user.username}-{callback.from_user.id}"
+    )
     bot = callback.bot
 
     msg_id = await state.get_value("schedule_msg_id")
@@ -90,6 +93,9 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     """
     This handler receives messages with `/start` command
     """
+    logger.debug(
+        f"/start message from {message.from_user.username}-{message.from_user.id}"
+    )
     classes = get_classes_for_today(
         "03.11"
     )  # todo user has to set the `start_date` thru the bot somehow
