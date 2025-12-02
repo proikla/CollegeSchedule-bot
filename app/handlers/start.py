@@ -17,8 +17,7 @@ from app.services.parse_xlsx import compose_schedule, get_classes_for_today
 
 router = Router()
 
-schedule = compose_schedule(start_date="03.11")
-flat: list[Day] = [x for sub in schedule for x in sub]
+schedule = compose_schedule()  # [<Day>, <Day>, ...]
 
 
 # todo: add comments.
@@ -26,7 +25,7 @@ flat: list[Day] = [x for sub in schedule for x in sub]
 
 def find_day(schedule, day_to_find: int):
     logger.debug("Find day triggered")
-    for day in flat:
+    for day in schedule:
         if f"{day.date.month}/{day.date.day}" == day_to_find:
             return day
 
@@ -68,8 +67,7 @@ async def handle_callback(callback: CallbackQuery, state: FSMContext):
     bot = callback.bot
     msg_id = await state.get_value("schedule_msg_id")
 
-    for day in flat:
-        logger.debug(day.date.day)
+    for day in schedule:
         if f"{day.date.month}/{day.date.day}" == callback.data:
             try:
                 await bot.edit_message_text(
@@ -102,8 +100,6 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
 
     msg: Message = await message.answer(
         text=f"{classes}",
-        reply_markup=await get_inline_calendar_markup(
-            12, 2025, compose_schedule(start_date="03.11")
-        ),
+        reply_markup=await get_inline_calendar_markup(12, 2025, compose_schedule()),
     )
     await state.set_data({"schedule_msg_id": msg.message_id, "month": 12})

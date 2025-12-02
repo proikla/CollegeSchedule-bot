@@ -20,21 +20,20 @@ logger = loguru.logger
 router = Router()
 
 
-async def get_inline_calendar_markup(month, year, schedule):
+async def get_inline_calendar_markup(month, year, schedule, step=6):
 
-    flat: list[Day] = [x for sub in schedule for x in sub]
-    length = len(flat)
+    length = len(schedule)
 
     days_keyboard = [
         [
             InlineKeyboardButton(
-                text=f"{flat[day_idx].date.day}",
-                callback_data=f"{month}/{flat[day_idx].date.day}",
+                text=f"{schedule[day_idx].date.day}",
+                callback_data=f"{month}/{schedule[day_idx].date.day}",
             )
-            for day_idx in range(row, row + 8 if row + 8 < length else length)
-            if flat[day_idx].date.month == month
+            for day_idx in range(row, row + step if row + step < length else length)
+            if schedule[day_idx].date.month == month
         ]
-        for row in range(0, length + 1, 8)
+        for row in range(0, length + 1, step)
     ]
 
     builder = InlineKeyboardBuilder(days_keyboard).row(

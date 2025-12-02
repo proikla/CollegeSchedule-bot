@@ -29,7 +29,7 @@ class Day:
 
 def calculate_classes_amount(df=df):
     """
-    figure out how many classes a day has
+    figure out how many classes each day has
 
     Returns:
         dict: `{<weekday>: <amount_of_classes>}`
@@ -88,23 +88,35 @@ def find_starting_row(df=df) -> int:
         count += 1
 
 
+def find_starting_date(df=df):
+    "Find the date of the first day in the schedule."
+    date_row = cached_starting_row - 1
+    return (
+        df[cached_classes_columns[0]]
+        .astype(str)
+        .tolist()[date_row]
+        .replace(" ", "")
+        .split("-")[0]
+    )
 
 
-def compose_schedule(df=df, start_date="03.11"):
+def compose_schedule(df=df, start_date=None):
     # start wit starting row
+    if not start_date:
+        start_date = find_starting_date()
+
     start_date = datetime.strptime(start_date, "%d.%m").replace(
         year=datetime.now().year
     )
     days_processed = 0
-
-    week = []
     schedule = []
-    # * FOR EACH WEEK
+
+    # iterate thru columns that contain classes. (weeks)
     for week_idx in cached_classes_columns:  # [3,5,...]
-        # * FOR EACH DAY
         i = cached_starting_row
         j = i + cached_classes_amount.get("понедельник")
-        for day_name in WEEKDAYS:
+
+        for day_name in WEEKDAYS:  # iterate thru days in that column
             j = i + cached_classes_amount.get(day_name, 0)
 
             subjects = df.iloc[i:j, week_idx].fillna("").astype(str).tolist()
@@ -121,27 +133,25 @@ def compose_schedule(df=df, start_date="03.11"):
                 day_name,
             )
 
+            schedule.append(day)
             days_processed += 1
-            week.append(day)
             i = j
 
-        days_processed += 1  # one for the Sunday
-        schedule.append(week)
-        week = []
-        day = []
+        days_processed += 1  # one for Sunday
     return schedule
 
 
 def get_classes_for_today(start_date: str):
     schedule = compose_schedule(start_date=start_date)
-    for week in schedule:
-        for day in week:
-            if day.date == datetime.now().replace(
-                hour=0, minute=0, second=0, microsecond=0
-            ):
-                return day
+    for day in schedule:
+        if day.date == datetime.now().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ):
+            return day
 
 
-cached_starting_row = find_starting_row(df=df)
-cached_classes_amount = calculate_classes_amount()
-cached_classes_columns = find_classes_columns()
+cached_starting_row: int = find_starting_row(df=df)
+cached_classes_amount: dict = calculate_classes_amount()
+cached_classes_columns: list[int] = find_classes_columns()
+if __name__ == "__main__":
+    print(find_starting_date())

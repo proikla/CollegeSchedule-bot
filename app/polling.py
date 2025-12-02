@@ -18,7 +18,8 @@ TOKEN = config.token
 
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
 
-# todo: make Schedule structure flat.
+# todo: TEST.
+
 # todo: add comments in handlers/start.py
 # todo: users can upload the schedule.
 # todo: users can ask to delete a class and provide proof.
@@ -35,5 +36,4 @@ async def main() -> None:
 if __name__ == "__main__":
     if os.name == "nt":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
     asyncio.run(main())
