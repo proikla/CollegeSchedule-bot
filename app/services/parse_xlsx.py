@@ -1,10 +1,12 @@
+from collections import defaultdict
 from typing import Generator
+import loguru
 import pandas as pd
-
-df = pd.read_excel("app/data/schedule.xlsx", header=None)
 from datetime import datetime, timedelta
+import os
+import re
 
-
+logger = loguru.logger
 WEEKDAYS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота"]
 
 
@@ -24,10 +26,50 @@ class Day:
         self.name: str = name
 
     def __format__(self, format_spec):
-        return f"*{self.name.capitalize()}*\n{''.join([f"{idx+1}: {_class}\n" for idx, _class in enumerate(self.classes)])}"
+        return f"*{self.name.capitalize()} {self.date.strftime('%d.%m.%y')}*\n{''.join([f"{idx+1}: {_class}\n" for idx, _class in enumerate(self.classes)])}"
 
 
-def calculate_classes_amount(df=df):
+def merge_days(days):
+    buckets = defaultdict(list)
+    for d in days:
+        buckets[d.date.date()].append(d)
+
+    merged = []
+    for _date, group in buckets.items():
+        first = group[0]
+        combined_classes = []
+        for g in group:
+            combined_classes += g.classes
+        merged.append(Day(first.date, combined_classes, first.name))
+
+    return sorted(merged, key=lambda d: d.date)
+
+
+def read_data() -> list[pd.DataFrame]:
+    """
+    Read all xlsx files in app/data/ and return dataframes
+
+    :return: list of dataframes
+    :rtype: list[DataFrame]
+    """
+    dataframes: list[pd.DataFrame] = []
+    data_path = "app/data/"
+
+    for filename in os.listdir(data_path):
+        dataframes.append(pd.read_excel(os.path.join(data_path, filename), header=None))
+
+    return dataframes
+
+
+def is_weekday(s: str) -> str | bool:
+    for weekday in WEEKDAYS:
+        if weekday in s:
+            return weekday
+
+    return False
+
+
+def calculate_classes_amount(df):
     """
     figure out how many classes each day has
 
@@ -46,35 +88,38 @@ def calculate_classes_amount(df=df):
         if isinstance(row, str):
             row = row.strip().lower()
 
-            if row in WEEKDAYS:
+            if weekday := is_weekday(row):
                 # * store info
                 if classes_count:
                     days_to_classes_amount[current_day] = classes_count
                     classes_count = 0
 
                 # * start counting on a new day
-                current_day = row
+                current_day = weekday
                 classes_count += 1
 
     days_to_classes_amount[current_day] = classes_count
     return days_to_classes_amount
 
 
-def find_classes_columns(df=df) -> list:
+def find_classes_columns(df: pd.DataFrame, starting_row) -> list:
     """find out what columns contain classes.
 
     Returns:
         list: Indecies of the columns that contain classes info.
     """
-    # just a pattern thing, usually classes are in the columns from the third one
-    return list(range(2, len(df.columns), 2))
+    columns = []
+    row = starting_row - 1
+    for i in range(len(df.columns)):
+        value = df[i][row]
+        if re.search(r"\d+\.\d+-\d+\.\d+", str(value)):
+            columns.append(i)
 
-
-# * room info columns are ez to get by ++ classes columns
+    return columns
 
 
 # find what row classes start on
-def find_starting_row(df=df) -> int:
+def find_starting_row(df) -> int:
     """Find the row classes start on.
 
     Returns:
@@ -83,12 +128,12 @@ def find_starting_row(df=df) -> int:
     # usually starting row is on the same row 'понедельник' is on, which is also the first column
     count = 0
     for row in df[0]:
-        if isinstance(row, str) and row.strip().lower() == WEEKDAYS[0]:
+        if isinstance(row, str) and WEEKDAYS[0] in row.strip().lower():
             return count
         count += 1
 
 
-def find_starting_date(df=df):
+def find_starting_date(df, cached_starting_row: int, cached_classes_columns: list):
     "Find the date of the first day in the schedule."
     date_row = cached_starting_row - 1
     return (
@@ -100,45 +145,56 @@ def find_starting_date(df=df):
     )
 
 
-def compose_schedule(df=df, start_date=None):
+def compose_schedule():
     # start wit starting row
-    if not start_date:
-        start_date = find_starting_date()
-
-    start_date = datetime.strptime(start_date, "%d.%m").replace(
-        year=datetime.now().year
-    )
-    days_processed = 0
+    # * for each file in data/
     schedule = []
+    data = read_data()
+    cache = calculate_cache(data)
+    for idx, df in enumerate(data):
 
-    # iterate thru columns that contain classes. (weeks)
-    for week_idx in cached_classes_columns:  # [3,5,...]
-        i = cached_starting_row
-        j = i + cached_classes_amount.get("понедельник")
+        cached_starting_row, cached_classes_amount, cached_classes_columns = cache[idx]
 
-        for day_name in WEEKDAYS:  # iterate thru days in that column
-            j = i + cached_classes_amount.get(day_name, 0)
+        start_date = find_starting_date(
+            df=df,
+            cached_classes_columns=cached_classes_columns,
+            cached_starting_row=cached_starting_row,
+        )
 
-            subjects = df.iloc[i:j, week_idx].fillna("").astype(str).tolist()
-            classrooms = df.iloc[i:j, week_idx + 1].fillna("").astype(str).tolist()
+        start_date = datetime.strptime(
+            f"{start_date}.{datetime.now().year}", "%d.%m.%Y"
+        )
+        days_processed = 0
 
-            classes = [
-                Class(subject.strip(), classroom.strip())
-                for subject, classroom in zip(subjects, classrooms)
-            ]
+        # iterate thru columns that contain classes. (weeks)
+        for week_idx in cached_classes_columns:  # [3,5,...]
+            i = cached_starting_row
+            j = i + cached_classes_amount.get("понедельник")
 
-            day = Day(
-                start_date + timedelta(days=days_processed),
-                classes,
-                day_name,
-            )
+            for day_name in WEEKDAYS:  # iterate thru days in that column
+                j = i + cached_classes_amount.get(day_name, 0)
 
-            schedule.append(day)
-            days_processed += 1
-            i = j
+                subjects = df.iloc[i:j, week_idx].fillna("").astype(str).tolist()
+                classrooms = df.iloc[i:j, week_idx + 1].fillna("").astype(str).tolist()
 
-        days_processed += 1  # one for Sunday
-    return schedule
+                classes = [
+                    Class(subject.strip(), classroom.strip())
+                    for subject, classroom in zip(subjects, classrooms)
+                ]
+
+                day = Day(
+                    start_date + timedelta(days=days_processed),
+                    classes,
+                    day_name,
+                )
+
+                schedule.append(day)
+                days_processed += 1
+                i = j
+
+            days_processed += 1  # one for Sunday
+
+    return merge_days(schedule)
 
 
 def get_classes_for_today(start_date: str):
@@ -150,8 +206,28 @@ def get_classes_for_today(start_date: str):
             return day
 
 
-cached_starting_row: int = find_starting_row(df=df)
-cached_classes_amount: dict = calculate_classes_amount()
-cached_classes_columns: list[int] = find_classes_columns()
-if __name__ == "__main__":
-    print(find_starting_date())
+def calculate_cache(data: list[pd.DataFrame]) -> list[list]:
+    """
+    todo
+
+    :param data: Description
+    :type data: list[pd.DataFrame]
+    :return: List of lists - [[cached_row, cached_amount, cached_columns], [...]]
+    :rtype: list[list]
+    """
+    cache = []
+    for df in data:
+        cache.append([])
+
+        starting_row = find_starting_row(df)
+        classes_amount = calculate_classes_amount(df)
+        classes_columns = find_classes_columns(df, starting_row)
+
+        cache[-1].append(starting_row)
+        cache[-1].append(classes_amount)
+        cache[-1].append(classes_columns)
+
+    return cache
+
+
+# todo: you can merge cached_starting_row and cached_classes_amount into one thing
