@@ -16,6 +16,8 @@ class Class:
         self.classroom = classroom
 
     def __format__(self, format_spec):
+        if not (self.subject and self.classroom):
+            return ""
         return f"{self.classroom} - {self.subject}"
 
 
@@ -29,18 +31,27 @@ class Day:
         return f"*{self.name.capitalize()} {self.date.strftime('%d.%m.%y')}*\n{''.join([f"{idx+1}: {_class}\n" for idx, _class in enumerate(self.classes)])}"
 
 
-def merge_days(days):
-    buckets = defaultdict(list)
+def merge_days_by_slot(days):
+    groups = defaultdict(list)
     for d in days:
-        buckets[d.date.date()].append(d)
+        groups[d.date.date()].append(d)
 
     merged = []
-    for _date, group in buckets.items():
+    for date_key, group in groups.items():
+        group.sort(key=lambda d: d.date)  # chronological
+        max_len = max(len(d.classes) for d in group)  # longest slot count
+        slots = [""] * max_len
+
+        for d in group:
+            for i, cls in enumerate(d.classes):
+                s = format(cls, "")  # uses Class.__format__
+                if not slots[i]:
+                    slots[i] = s
+                else:
+                    slots[i] = f"{slots[i]} | {s}" if s else f"{slots[i]}"
+
         first = group[0]
-        combined_classes = []
-        for g in group:
-            combined_classes += g.classes
-        merged.append(Day(first.date, combined_classes, first.name))
+        merged.append(Day(first.date, slots, first.name))
 
     return sorted(merged, key=lambda d: d.date)
 
@@ -194,11 +205,11 @@ def compose_schedule():
 
             days_processed += 1  # one for Sunday
 
-    return merge_days(schedule)
+    return merge_days_by_slot(schedule)
 
 
-def get_classes_for_today(start_date: str):
-    schedule = compose_schedule(start_date=start_date)
+def get_classes_for_today():
+    schedule = compose_schedule()
     for day in schedule:
         if day.date == datetime.now().replace(
             hour=0, minute=0, second=0, microsecond=0

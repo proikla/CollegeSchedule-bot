@@ -94,8 +94,8 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     logger.debug(
         f"/start message from {message.from_user.username}-{message.from_user.id}"
     )
-    classes = get_classes_for_today(
-        "03.11"
+    classes = (
+        get_classes_for_today()
     )  # todo user has to set the `start_date` thru the bot somehow
 
     msg: Message = await message.answer(
